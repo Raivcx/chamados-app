@@ -30,62 +30,35 @@ export function AuthProvider({ children }) {
   useEffect(() => {
     let mounted = true;
 
-    // Timeout de segurança: se não carregar em 6 segundos, libera a tela
+    // Timeout de segurança para evitar travamento infinito
     const timeout = setTimeout(() => {
       if (mounted && loading) {
-        console.warn('AuthContext: Timeout de carregamento atingido. Forçando desbloqueio.');
+        console.warn('AuthContext: Timeout de 8s atingido. Liberando interface por segurança.');
         setLoading(false);
       }
-    }, 6000);
+    }, 8000);
 
-    async function initializeAuth() {
-      try {
-        console.log('AuthContext: Inicializando sessão...');
-        const { data: { session }, error } = await supabase.auth.getSession();
-        
-        if (error) {
-          console.error('AuthContext: Erro no getSession:', error.message);
-          if (mounted) setLoading(false);
-          return;
-        }
-
-        if (session?.user && mounted) {
-          console.log('AuthContext: Usuário logado encontrado:', session.user.email);
-          setUser(session.user);
-          const p = await fetchProfile(session.user.id);
-          if (mounted) {
-            console.log('AuthContext: Perfil carregado:', p?.nome || 'Não encontrado');
-            setProfile(p);
-          }
-        } else {
-          console.log('AuthContext: Nenhum usuário logado.');
-        }
-      } catch (err) {
-        console.error('AuthContext: Erro crítico na inicialização:', err);
-      } finally {
-        if (mounted) {
-          setLoading(false);
-          clearTimeout(timeout);
-        }
-      }
-    }
-
-    initializeAuth();
-
+    // Subscrever a mudanças de autenticação (inclui INITIAL_SESSION)
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
-      console.log('AuthContext: Estado de autenticação alterado:', event);
+      console.log(`AuthContext: Evento [${event}] recebido.`);
+      
       if (!mounted) return;
 
       if (session?.user) {
         setUser(session.user);
+        // Só busca o perfil se ele ainda não estiver carregado ou se for um novo login
         const p = await fetchProfile(session.user.id);
-        if (mounted) setProfile(p);
+        if (mounted) {
+          setProfile(p);
+          console.log('AuthContext: Perfil carregado com sucesso:', p?.nome);
+        }
       } else {
         setUser(null);
         setProfile(null);
       }
 
-      if (event === 'INITIAL_SESSION' || event === 'SIGNED_IN' || event === 'SIGNED_OUT') {
+      // Finaliza o estado de carregamento inicial
+      if (mounted && (event === 'SIGNED_IN' || event === 'SIGNED_OUT' || event === 'INITIAL_SESSION' || event === 'USER_UPDATED')) {
         setLoading(false);
         clearTimeout(timeout);
       }
@@ -96,7 +69,7 @@ export function AuthProvider({ children }) {
       clearTimeout(timeout);
       subscription.unsubscribe();
     };
-  }, [fetchProfile, loading]);
+  }, [fetchProfile]);
 
   const login = useCallback(async (emailOrUsername, senha) => {
     try {

@@ -12,7 +12,7 @@ const SUMMARY_CARDS = [
 ];
 
 export default function Dashboard() {
-  const { tickets, categories, statuses, getCategoryName, getStatusObj, getPriorityObj, getUserName, updateTicket } = useApp();
+  const { tickets, categories, statuses, getCategoryName, getStatusObj, getPriorityObj, getUserName, updateTicket, loadingData } = useApp();
   const { isCliente } = useAuth();
   const navigate = useNavigate();
   const [filterCat, setFilterCat] = useState('all');
@@ -24,6 +24,15 @@ export default function Dashboard() {
     statuses.forEach((s) => { map[s.nome] = s.id; });
     return map;
   }, [statuses]);
+
+  if (loadingData) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-[60vh] text-on-surface-variant">
+        <div className="w-12 h-12 border-4 border-primary/30 border-t-primary rounded-full animate-spin mb-4"></div>
+        <p className="font-body-md animate-pulse">Sincronizando chamados...</p>
+      </div>
+    );
+  }
 
   const concluidoId = statusByName['Concluído'];
 
